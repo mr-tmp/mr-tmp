@@ -1,0 +1,45 @@
+services:
+  api:
+    # Hono.js (Node.js) API — source lives in the API/ subdirectory
+    build:
+      context: ./API
+    ports:
+      - mode: ingress
+        target: 3000
+        published: 3000
+    environment:
+      - NODE_ENV=production
+      # DATABASE_URL uses POSTGRES_PASSWORD secret; set via: defang config set POSTGRES_PASSWORD=...
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/appdb
+    depends_on:
+      db:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+  db:
+    image: postgres:16
+    # x-defang-postgres provisions a managed PostgreSQL (RDS on AWS, Cloud SQL on GCP)
+    x-defang-postgres: true
+    ports:
+      - mode: host
+        target: 5432
+        published: 5432
+    environment:
+      - POSTGRES_DB=appdb
+      - POSTGRES_USER=postgres
+      # Bare variable — set via: defang config set POSTGRES_PASSWORD=...
+      - POSTGRES_PASSWORD
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.5"
+          memory: 512M
